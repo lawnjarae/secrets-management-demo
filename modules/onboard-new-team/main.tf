@@ -1,26 +1,41 @@
 
 ##### Setup team namespeaces ######
-resource "vault_namespace" "this" {
-  namespace = var.root_namespace
-  path      = var.team_name
-}
+# resource "vault_namespace" "this" {
+#   namespace = var.root_namespace
+#   path      = var.team_name
+# }
 
 resource "vault_mount" "this" {
-  namespace = vault_namespace.this.path_fq
-  path      = "secret"
+  namespace = var.root_namespace
+  path      = "kvv2_${var.team_name}"
   type      = "kv-v2"
   options = {
     version = "2"
   }
 }
 
-##### Add team secrets #####
+resource "random_pet" "secret_name" {
+  count     = 3
+  length    = 2
+  separator = "_"
+}
+
+# Generate 9 random pet names for secret values
+resource "random_pet" "secret_value" {
+  count     = 9
+  length    = 3
+  separator = "_"
+}
+
+# Create 3 secrets, each with 3 different versions
 resource "vault_generic_secret" "this" {
-  namespace = vault_namespace.this.path_fq
-  path      = "${vault_mount.this.path}/${var.team_name}"
+  count     = 9 # 3 versions for each of the 3 secrets
+  namespace = var.root_namespace
+  path      = "${vault_mount.this.path}/${random_pet.secret_name[count.index % 3].id}"
+
   data_json = jsonencode(
     {
-      "ns" = vault_namespace.this.path_fq
+      "pet" = random_pet.secret_value[count.index].id
     }
   )
 }
@@ -32,37 +47,60 @@ resource "vault_policy" "team_policy" {
 
   policy = <<EOT
 # Policy for Dev Team ${var.team_name}
-path "${vault_namespace.this.path_fq}/${vault_mount.this.path}/data/*" {
+path "${vault_mount.this.path}/data/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+path "${vault_mount.this.path}/metadata/*" {
   capabilities = ["read", "list"]
 }
 
-path "${vault_namespace.this.path_fq}/${vault_mount.this.path}/metadata/*" {
+# Allow the user to list the mount points (like secret engines) within their specific namespace
+path "sys/mounts/*" {
+   capabilities = ["create", "read", "update", "delete", "list"]
+}
+path "sys/mounts" {
+  capabilities = ["read", "list"]
+}
+
+path "sys/namespaces/*" {
   capabilities = ["list"]
 }
 
-path "${vault_namespace.this.path_fq}/${vault_mount.this.path}/data/${var.team_name}/*" {
-  capabilities = ["read", "list", "create", "update", "delete"]
-}
+# path "${var.root_namespace}/${vault_mount.this.path}/data/*" {
+#   capabilities = ["create", "read", "update", "delete", "list"]
+# }
 
-path "${vault_namespace.this.path_fq}/${vault_mount.this.path}/metadata/${var.team_name}/*" {
-  capabilities = ["list", "delete"]
-}
+# path "${var.root_namespace}/${vault_mount.this.path}/metadata/*" {
+#   capabilities = ["read", "list"]
+# }
+
+# # Enable and manage secrets engines
+# path "${var.root_namespace}/sys/mounts/*" {
+#    capabilities = ["create", "read", "update", "delete", "list"]
+# }
+
+# # List available secrets engines
+# path "${var.root_namespace}/sys/mounts" {
+#   capabilities = [ "read" ]
+# }
 
 # Allow listing of namespaces within the root namespace
-path "sys/namespaces/${vault_namespace.this.path_fq}/*" {
-# path "sys/namespaces/*" {
-  capabilities = ["list", "read"]
-}
+# path "sys/namespaces/${var.root_namespace}/*" {
+# # path "sys/namespaces/*" {
+#   capabilities = ["list", "read"]
+# }
+# path "${var.root_namespace}/${vault_mount.this.path}/data/${var.team_name}/*" {
+#   capabilities = ["read", "list", "create", "update", "delete"]
+# }
 
-# # Allow the user to list the mount points (like secret engines) within their specific namespace
-path "sys/mounts/*" {
-  capabilities = ["read", "list"]
-}
-
+# path "${var.root_namespace}/${vault_mount.this.path}/metadata/${var.team_name}/*" {
+#   capabilities = ["list", "delete"]
+# }
 # Tristan files
-path "${vault_namespace.this.path_fq}/auth/*" {
-  capabilities = ["read", "list", "update", "create"]
-}
+# path "${var.root_namespace}/auth/*" {
+#   capabilities = ["read", "list", "update", "create"]
+# }
 
 EOT
 }

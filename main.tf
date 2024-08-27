@@ -1,6 +1,10 @@
 provider "vault" {
   address = var.vault_address
-  token = var.vault_token
+  token   = var.vault_token
+}
+
+provider "random" {
+  
 }
 
 # locals {
@@ -13,7 +17,7 @@ resource "null_resource" "check_admin_namespace" {
   provisioner "local-exec" {
     command = "vault namespace list -format=json | jq -e '.[] | select(. == \"admin/\")' > /dev/null || vault namespace create admin"
     environment = {
-      VAULT_ADDR = var.vault_address
+      VAULT_ADDR  = var.vault_address
       VAULT_TOKEN = var.vault_token
     }
   }
@@ -30,7 +34,7 @@ data "vault_namespace" "admin" {
 
 resource "vault_namespace" "root_namespace" {
   namespace = data.vault_namespace.admin.path
-  path      = "secrets_management_demo"
+  path      = var.demo_root_namespace
 }
 
 resource "vault_mount" "kvv2" {

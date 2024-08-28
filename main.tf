@@ -1,6 +1,10 @@
 provider "vault" {
   address = var.vault_address
-  token = var.vault_token
+  token   = var.vault_token
+}
+
+provider "random" {
+
 }
 
 # locals {
@@ -13,7 +17,7 @@ resource "null_resource" "check_admin_namespace" {
   provisioner "local-exec" {
     command = "vault namespace list -format=json | jq -e '.[] | select(. == \"admin/\")' > /dev/null || vault namespace create admin"
     environment = {
-      VAULT_ADDR = var.vault_address
+      VAULT_ADDR  = var.vault_address
       VAULT_TOKEN = var.vault_token
     }
   }
@@ -30,12 +34,12 @@ data "vault_namespace" "admin" {
 
 resource "vault_namespace" "root_namespace" {
   namespace = data.vault_namespace.admin.path
-  path      = "secrets_management_demo"
+  path      = var.demo_root_namespace
 }
 
 resource "vault_mount" "kvv2" {
   namespace   = vault_namespace.root_namespace.path_fq
-  path        = "secret"
+  path        = "shared_secrets"
   type        = "kv-v2"
   description = "KVv2 secrets engine"
 }
@@ -58,6 +62,35 @@ resource "vault_auth_backend" "userpass" {
   description = "Userpass authentication method for teams"
 }
 
+# Shared secrets policy
+resource "vault_policy" "shared_secrets_policy" {
+  name      = "shared_secrets_policy"
+  namespace = vault_namespace.root_namespace.path_fq
+
+  policy = <<EOT
+# Policy to access shared secrets
+path "${vault_mount.kvv2.path}/data/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+path "${vault_mount.kvv2.path}/metadata/*" {
+  capabilities = ["read", "list"]
+}
+EOT
+}
+
+# Shared secrets group
+resource "vault_identity_group" "shared_secrets_group" {
+  name      = "shared_secrets_group"
+  namespace = vault_namespace.root_namespace.path_fq
+
+  member_entity_ids = []
+
+  policies = [
+    vault_policy.shared_secrets_policy.name
+  ]
+}
+
 ##### Add users for each team #####
 module "onboard_new_team" {
   source = "./modules/onboard-new-team"
@@ -67,6 +100,6 @@ module "onboard_new_team" {
   team_name      = each.key
   root_namespace = vault_namespace.root_namespace.path_fq
 
-  depends_on = [vault_auth_backend.userpass]
+  depends_on = [vault_auth_backend.userpass, vault_identity_group.shared_secrets_group]
 }
 

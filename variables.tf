@@ -5,11 +5,11 @@ variable "vault_address" {
 }
 
 variable "vault_token" {
-  type = string
+  type    = string
   default = null
 }
 
-variable "default_team_namespace" {
+variable "demo_root_namespace" {
   default = "dev_team_a"
 }
 

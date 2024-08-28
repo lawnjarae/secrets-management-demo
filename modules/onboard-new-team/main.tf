@@ -1,26 +1,52 @@
 
 ##### Setup team namespeaces ######
-resource "vault_namespace" "this" {
+# resource "vault_namespace" "this" {
+#   namespace = var.root_namespace
+#   path      = var.team_name
+# }
+
+# Get a few data resources so we can create groups and entity ids
+data "vault_identity_group" "shared_secrets_group" {
+  namespace  = var.root_namespace
+  group_name = "shared_secrets_group"
+}
+
+data "vault_auth_backend" "userpass" {
   namespace = var.root_namespace
-  path      = var.team_name
+  path      = "userpass"
 }
 
 resource "vault_mount" "this" {
-  namespace = vault_namespace.this.path_fq
-  path      = "secret"
+  namespace = var.root_namespace
+  path      = "kvv2_${var.team_name}"
   type      = "kv-v2"
   options = {
     version = "2"
   }
 }
 
-##### Add team secrets #####
+resource "random_pet" "secret_name" {
+  count     = 3
+  length    = 2
+  separator = "_"
+}
+
+# Generate 9 random pet names for secret values
+resource "random_pet" "secret_value" {
+  count     = 9
+  length    = 3
+  separator = "_"
+}
+
+# Create 3 secrets, each with 3 different versions
 resource "vault_generic_secret" "this" {
-  namespace = vault_namespace.this.path_fq
-  path      = "${vault_mount.this.path}/${var.team_name}"
+  count     = 9 # 3 versions for each of the 3 secrets
+  namespace = var.root_namespace
+  path      = "${vault_mount.this.path}/${random_pet.secret_name[count.index % 3].id}"
+
   data_json = jsonencode(
     {
-      "ns" = vault_namespace.this.path_fq
+      "pet" = random_pet.secret_value[count.index].id
     }
   )
 }
@@ -32,39 +58,38 @@ resource "vault_policy" "team_policy" {
 
   policy = <<EOT
 # Policy for Dev Team ${var.team_name}
-path "${vault_namespace.this.path_fq}/${vault_mount.this.path}/data/*" {
+path "${vault_mount.this.path}/data/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+path "${vault_mount.this.path}/metadata/*" {
   capabilities = ["read", "list"]
 }
 
-path "${vault_namespace.this.path_fq}/${vault_mount.this.path}/metadata/*" {
+# Allow the user to list the mount points (like secret engines) within their specific namespace
+path "sys/mounts/*" {
+   capabilities = ["create", "read", "update", "delete", "list"]
+}
+path "sys/mounts" {
+  capabilities = ["read", "list"]
+}
+
+path "sys/namespaces/*" {
   capabilities = ["list"]
 }
-
-path "${vault_namespace.this.path_fq}/${vault_mount.this.path}/data/${var.team_name}/*" {
-  capabilities = ["read", "list", "create", "update", "delete"]
-}
-
-path "${vault_namespace.this.path_fq}/${vault_mount.this.path}/metadata/${var.team_name}/*" {
-  capabilities = ["list", "delete"]
-}
-
-# Allow listing of namespaces within the root namespace
-path "sys/namespaces/${vault_namespace.this.path_fq}/*" {
-# path "sys/namespaces/*" {
-  capabilities = ["list", "read"]
-}
-
-# # Allow the user to list the mount points (like secret engines) within their specific namespace
-path "sys/mounts/*" {
-  capabilities = ["read", "list"]
-}
-
-# Tristan files
-path "${vault_namespace.this.path_fq}/auth/*" {
-  capabilities = ["read", "list", "update", "create"]
-}
-
 EOT
+}
+
+# Create the entity
+# Create the user
+# Create the alias
+# Add the entity_id to the group list
+resource "vault_identity_entity" "this" {
+  namespace = var.root_namespace
+  name      = var.team_name
+  metadata = {
+    "team" = var.team_name
+  }
 }
 
 # Create the Userpass user for the team
@@ -80,4 +105,24 @@ resource "vault_generic_endpoint" "team_user" {
   })
 
   depends_on = [vault_policy.team_policy]
+}
+
+resource "vault_identity_entity_alias" "this" {
+  namespace      = var.root_namespace
+  name           = var.team_name
+  mount_accessor = data.vault_auth_backend.userpass.accessor
+  canonical_id   = vault_identity_entity.this.id
+}
+
+resource "vault_identity_group_member_entity_ids" "group_entity_ids" {
+  namespace = var.root_namespace
+  group_id  = data.vault_identity_group.shared_secrets_group.id
+
+  # Append the new entity ID to the existing list
+  member_entity_ids = concat(
+    tolist(data.vault_identity_group.shared_secrets_group.member_entity_ids),
+    [vault_identity_entity.this.id]
+  )
+
+  depends_on = [ data.vault_identity_group.shared_secrets_group ]
 }

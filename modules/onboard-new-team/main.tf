@@ -1,10 +1,3 @@
-
-##### Setup team namespeaces ######
-# resource "vault_namespace" "this" {
-#   namespace = var.root_namespace
-#   path      = var.team_name
-# }
-
 # Get a few data resources so we can create groups and entity ids
 data "vault_identity_group" "shared_secrets_group" {
   namespace  = var.root_namespace

@@ -10,16 +10,7 @@ variable "vault_token" {
 }
 
 variable "demo_root_namespace" {
-  default = "dev_team_a"
-}
-
-variable "team_namespaces" {
-  type = set(string)
-  default = [
-    "dev_team_a",
-    "dev_team_b",
-    "dev_team_c",
-  ]
+  default = "secrets_management_demo"
 }
 
 variable "team_mounts" {

@@ -1,6 +1,6 @@
 provider "vault" {
-  address = var.vault_address
-  token   = var.vault_token
+  # address = var.vault_address
+  # token   = var.vault_token
 }
 
 provider "random" {
@@ -13,14 +13,14 @@ provider "random" {
 # }
 
 # Handle HCP's admin namespace
-resource "null_resource" "check_admin_namespace" {
-  provisioner "local-exec" {
-    command = "vault namespace list -format=json | jq -e '.[] | select(. == \"admin/\")' > /dev/null || vault namespace create admin"
-    environment = {
-      VAULT_ADDR  = var.vault_address
-      VAULT_TOKEN = var.vault_token
-    }
-  }
+# resource "null_resource" "check_admin_namespace" {
+#   provisioner "local-exec" {
+#     command = "vault namespace list -format=json | jq -e '.[] | select(. == \"admin/\")' > /dev/null || vault namespace create admin"
+#     environment = {
+#       VAULT_ADDR  = var.vault_address
+#       VAULT_TOKEN = var.vault_token
+#     }
+#   }
 
   # triggers = {
   #   always_run = "${timestamp()}"

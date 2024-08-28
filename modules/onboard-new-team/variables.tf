@@ -17,6 +17,6 @@ variable "root_namespace" {
 
 variable "needs_shared_secrets" {
   type        = bool
-  description = "Does this user need access to shared secrets?"
+  description = "Does this team need access to shared secrets?"
   default     = false
 }

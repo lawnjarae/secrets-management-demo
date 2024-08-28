@@ -25,7 +25,7 @@ provider "random" {
   # triggers = {
   #   always_run = "${timestamp()}"
   # }
-}
+# }
 
 data "vault_namespace" "admin" {
   depends_on = [null_resource.check_admin_namespace]

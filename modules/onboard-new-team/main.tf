@@ -5,6 +5,17 @@
 #   path      = var.team_name
 # }
 
+# Get a few data resources so we can create groups and entity ids
+data "vault_identity_group" "shared_secrets_group" {
+  namespace  = var.root_namespace
+  group_name = "shared_secrets_group"
+}
+
+data "vault_auth_backend" "userpass" {
+  namespace = var.root_namespace
+  path      = "userpass"
+}
+
 resource "vault_mount" "this" {
   namespace = var.root_namespace
   path      = "kvv2_${var.team_name}"
@@ -66,43 +77,19 @@ path "sys/mounts" {
 path "sys/namespaces/*" {
   capabilities = ["list"]
 }
-
-# path "${var.root_namespace}/${vault_mount.this.path}/data/*" {
-#   capabilities = ["create", "read", "update", "delete", "list"]
-# }
-
-# path "${var.root_namespace}/${vault_mount.this.path}/metadata/*" {
-#   capabilities = ["read", "list"]
-# }
-
-# # Enable and manage secrets engines
-# path "${var.root_namespace}/sys/mounts/*" {
-#    capabilities = ["create", "read", "update", "delete", "list"]
-# }
-
-# # List available secrets engines
-# path "${var.root_namespace}/sys/mounts" {
-#   capabilities = [ "read" ]
-# }
-
-# Allow listing of namespaces within the root namespace
-# path "sys/namespaces/${var.root_namespace}/*" {
-# # path "sys/namespaces/*" {
-#   capabilities = ["list", "read"]
-# }
-# path "${var.root_namespace}/${vault_mount.this.path}/data/${var.team_name}/*" {
-#   capabilities = ["read", "list", "create", "update", "delete"]
-# }
-
-# path "${var.root_namespace}/${vault_mount.this.path}/metadata/${var.team_name}/*" {
-#   capabilities = ["list", "delete"]
-# }
-# Tristan files
-# path "${var.root_namespace}/auth/*" {
-#   capabilities = ["read", "list", "update", "create"]
-# }
-
 EOT
+}
+
+# Create the entity
+# Create the user
+# Create the alias
+# Add the entity_id to the group list
+resource "vault_identity_entity" "this" {
+  namespace = var.root_namespace
+  name      = var.team_name
+  metadata = {
+    "team" = var.team_name
+  }
 }
 
 # Create the Userpass user for the team
@@ -118,4 +105,22 @@ resource "vault_generic_endpoint" "team_user" {
   })
 
   depends_on = [vault_policy.team_policy]
+}
+
+resource "vault_identity_entity_alias" "this" {
+  namespace      = var.root_namespace
+  name           = var.team_name
+  mount_accessor = data.vault_auth_backend.userpass.accessor
+  canonical_id   = vault_identity_entity.this.id
+}
+
+resource "vault_identity_group_member_entity_ids" "group_entity_ids" {
+  namespace = var.root_namespace
+  group_id  = data.vault_identity_group.shared_secrets_group.id
+
+  # Append the new entity ID to the existing list
+  member_entity_ids = concat(
+    tolist(data.vault_identity_group.shared_secrets_group.member_entity_ids),
+    [vault_identity_entity.this.id]
+  )
 }

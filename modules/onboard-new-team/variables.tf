@@ -12,5 +12,11 @@ variable "team_name" {
 variable "root_namespace" {
   type        = string
   description = "The namespace where the userpass auth is located."
-  default = "admin/secrets_management_demo"
+  default     = "admin/secrets_management_demo"
+}
+
+variable "needs_shared_secrets" {
+  type        = bool
+  description = "Does this user need access to shared secrets?"
+  default     = false
 }

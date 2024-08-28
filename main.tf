@@ -95,10 +95,14 @@ resource "vault_identity_group" "shared_secrets_group" {
 module "onboard_new_team" {
   source = "./modules/onboard-new-team"
 
-  for_each = var.team_namespaces
+  for_each = {
+    for team in var.team_mounts :
+    team.team_name => team
+  }
 
-  team_name      = each.key
-  root_namespace = vault_namespace.root_namespace.path_fq
+  team_name            = each.value.team_name
+  root_namespace       = vault_namespace.root_namespace.path_fq
+  needs_shared_secrets = each.value.add_to_shared_secrets_group
 
   depends_on = [vault_auth_backend.userpass, vault_identity_group.shared_secrets_group]
 }

@@ -21,3 +21,24 @@ variable "team_namespaces" {
     "dev_team_c",
   ]
 }
+
+variable "team_mounts" {
+  type = list(object({
+    team_name                   = string
+    add_to_shared_secrets_group = bool
+  }))
+  default = [
+    {
+      team_name                   = "dev_team_a"
+      add_to_shared_secrets_group = true
+    },
+    {
+      team_name                   = "dev_team_b"
+      add_to_shared_secrets_group = true
+    },
+    {
+      team_name                   = "dev_team_c"
+      add_to_shared_secrets_group = false
+    }
+  ]
+}

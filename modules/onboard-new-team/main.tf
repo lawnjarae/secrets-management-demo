@@ -115,14 +115,11 @@ resource "vault_identity_entity_alias" "this" {
 }
 
 resource "vault_identity_group_member_entity_ids" "group_entity_ids" {
+  count     = var.needs_shared_secrets ? 1 : 0
   namespace = var.root_namespace
   group_id  = data.vault_identity_group.shared_secrets_group.id
+  exclusive = false
 
   # Append the new entity ID to the existing list
-  member_entity_ids = concat(
-    tolist(data.vault_identity_group.shared_secrets_group.member_entity_ids),
-    [vault_identity_entity.this.id]
-  )
-
-  depends_on = [ data.vault_identity_group.shared_secrets_group ]
+  member_entity_ids = [vault_identity_entity.this.id]
 }

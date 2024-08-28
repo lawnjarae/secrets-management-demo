@@ -123,4 +123,6 @@ resource "vault_identity_group_member_entity_ids" "group_entity_ids" {
     tolist(data.vault_identity_group.shared_secrets_group.member_entity_ids),
     [vault_identity_entity.this.id]
   )
+
+  depends_on = [ data.vault_identity_group.shared_secrets_group ]
 }

@@ -1,39 +1,14 @@
 provider "vault" {
-  # address = var.vault_address
-  # token   = var.vault_token
+  address = var.vault_address
+  token   = var.vault_token
 }
 
 provider "random" {
 
 }
 
-# locals {
-#   # Assuming var.team_namespaces is a map where keys are team names
-#   team_users = { for team, _ in var.team_namespaces : "${team}_user" => "${team}_password" }
-# }
-
-# Handle HCP's admin namespace
-# resource "null_resource" "check_admin_namespace" {
-#   provisioner "local-exec" {
-#     command = "vault namespace list -format=json | jq -e '.[] | select(. == \"admin/\")' > /dev/null || vault namespace create admin"
-#     environment = {
-#       VAULT_ADDR  = var.vault_address
-#       VAULT_TOKEN = var.vault_token
-#     }
-#   }
-
-  # triggers = {
-  #   always_run = "${timestamp()}"
-  # }
-# }
-
-data "vault_namespace" "admin" {
-  path       = "admin"
-}
-
 resource "vault_namespace" "root_namespace" {
-  namespace = data.vault_namespace.admin.path
-  path      = var.demo_root_namespace
+  path      = "${var.demo_root_namespace}"
 }
 
 resource "vault_mount" "kvv2" {
